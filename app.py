@@ -99,14 +99,6 @@ st.markdown("""
         padding-left: 1rem;
     }
     
-    .feature-importance {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        margin-top: 1rem;
-    }
-    
     .tips-container {
         background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
         padding: 1.5rem;
@@ -154,22 +146,13 @@ def load_model():
         st.error(f"💥 **Error crítico:** {str(e)}")
         st.stop()
 
-def predict_with_confidence(gre, toefl, rating, sop, lor, cgpa, research, model, scaler):
-    """Hacer predicción con intervalo de confianza"""
+def predict_admission(gre, toefl, rating, sop, lor, cgpa, research, model, scaler):
+    """Hacer predicción simple"""
     data = np.array([[gre, toefl, rating, sop, lor, cgpa, research]])
     scaled = scaler.transform(data)
-    
-    # Múltiples predicciones para estimar incertidumbre
-    predictions = []
-    for _ in range(10):
-        pred = model.predict(scaled, verbose=0)
-        predictions.append(pred[0][0])
-    
-    mean_pred = np.mean(predictions) * 100
-    std_pred = np.std(predictions) * 100
-    confidence_interval = (mean_pred - 1.96*std_pred, mean_pred + 1.96*std_pred)
-    
-    return mean_pred, confidence_interval
+    prediction = model.predict(scaled, verbose=0)
+    probability = prediction[0][0] * 100
+    return probability
 
 def create_radar_chart(gre, toefl, rating, sop, lor, cgpa, research):
     """Crear gráfico radar de perfil del estudiante"""
@@ -248,37 +231,12 @@ def create_gauge_chart(probability):
     
     return fig
 
-def show_feature_importance():
-    """Mostrar importancia de características"""
-    features = ['CGPA', 'GRE', 'TOEFL', 'LOR', 'SOP', 'Universidad', 'Investigación']
-    importance = [0.35, 0.25, 0.15, 0.10, 0.08, 0.05, 0.02]
-    
-    fig = px.bar(
-        x=importance, 
-        y=features,
-        orientation='h',
-        title="🔍 Importancia de Factores en Admisión",
-        color=importance,
-        color_continuous_scale='viridis'
-    )
-    
-    fig.update_layout(
-        xaxis_title="Importancia Relativa",
-        yaxis_title="Factores",
-        font=dict(family="Inter"),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        height=350
-    )
-    
-    return fig
-
 def generate_recommendations(gre, toefl, rating, sop, lor, cgpa, research, probability):
     """Generar recomendaciones personalizadas"""
     recommendations = []
     
     if cgpa < 8.0:
-        recommendations.append("📚 **Enfócate en mejorar tu CGPA:** Es el factor más importante")
+        recommendations.append("📚 **Enfócate en mejorar tu CGPA:** Es uno de los factores más valorados")
     
     if gre < 320:
         recommendations.append("📝 **Prepárate más para el GRE:** Considera cursos de preparación")
@@ -328,7 +286,6 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 📊 Estadísticas")
     st.metric("Predicciones hoy", "1,247")
-    st.metric("Precisión del modelo", "94.2%")
     st.metric("Usuarios activos", "15,439")
 
 # Layout principal en columnas
@@ -372,7 +329,7 @@ with col2:
     # Realizar predicción
     with st.spinner('🤖 Analizando tu perfil con IA...'):
         time.sleep(0.5)  # Efecto visual
-        probability, confidence_interval = predict_with_confidence(
+        probability = predict_admission(
             gre, toefl, rating, sop, lor, cgpa, research, model, scaler
         )
     
@@ -401,11 +358,8 @@ with col2:
             {probability:.1f}%
         </div>
         <h2 style="margin: 0; color: {color};">{emoji} Probabilidad {status}</h2>
-        <div class="status-badge" style="background: {color};">
-            Intervalo de confianza: {confidence_interval[0]:.1f}% - {confidence_interval[1]:.1f}%
-        </div>
         <p style="margin-top: 1rem; color: #666;">
-            Basado en análisis de Machine Learning con datos de {400:,} estudiantes
+            Basado en análisis de Machine Learning
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -430,12 +384,6 @@ with col4:
     # Gráfico gauge
     gauge_fig = create_gauge_chart(probability)
     st.plotly_chart(gauge_fig, use_container_width=True)
-
-# Importancia de características
-st.markdown('<div class="feature-importance">', unsafe_allow_html=True)
-importance_fig = show_feature_importance()
-st.plotly_chart(importance_fig, use_container_width=True)
-st.markdown('</div>', unsafe_allow_html=True)
 
 # Recomendaciones personalizadas
 recommendations = generate_recommendations(gre, toefl, rating, sop, lor, cgpa, research, probability)
@@ -469,9 +417,9 @@ with metrics_cols[3]:
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; padding: 2rem; background: #f8f9fa; border-radius: 10px; margin-top: 2rem;">
-    <h4>🔬 Tecnología Avanzada de IA</h4>
-    <p>Este predictor utiliza redes neuronales profundas entrenadas con datos de miles de estudiantes.<br>
-    La precisión del modelo es del 94.2% en predicciones de admisión universitaria.</p>
+    <h4>🔬 Tecnología de Machine Learning</h4>
+    <p>Este predictor utiliza redes neuronales entrenadas con datos de estudiantes.<br>
+    Proporciona una estimación basada en patrones históricos de admisión.</p>
     <small>💡 <strong>Tip:</strong> Los resultados son estimaciones basadas en datos históricos. 
     Siempre consulta con asesores académicos para decisiones importantes.</small>
 </div>
@@ -483,16 +431,5 @@ with st.expander("🔧 Información Técnica del Modelo"):
     **Arquitectura:** Red Neuronal Profunda (Dense Layers)  
     **Optimizador:** Adam  
     **Función de pérdida:** Mean Squared Error  
-    **Métricas:** MAE, R²  
-    **Datos de entrenamiento:** 400+ estudiantes  
+    **Métricas:** MAE  
     **Última actualización:** """ + datetime.now().strftime("%B %Y"))
-    
-    # Mostrar distribución de probabilidades
-    sample_probs = np.random.normal(probability, 5, 100)
-    sample_probs = np.clip(sample_probs, 0, 100)
-    
-    fig_dist = px.histogram(x=sample_probs, nbins=20, 
-                           title="Distribución de Probabilidades Similar a Tu Perfil")
-    fig_dist.add_vline(x=probability, line_dash="dash", line_color="red",
-                      annotation_text="Tu probabilidad")
-    st.plotly_chart(fig_dist, use_container_width=True)
